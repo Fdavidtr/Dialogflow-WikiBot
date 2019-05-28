@@ -41,23 +41,36 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
   }
 
   async function fallback(agent) {
-    const queryFormatted = request.body.queryResult.queryText.trim().replace(' ','+')
+    const words = request.body.queryResult.queryText.trim().split(" ").map(e=>e.charAt(0).toUpperCase() + e.slice(1))
+    const queryFormatted = words.join("_").toLowerCase()
     try {
       //http://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&explaintext=1&titles=Unix
       const params = {
         titles : queryFormatted,
         explaintext : 1,
         redirects: 1,
+        converttitles: 1,
         prop : "extracts",
         action : "query",
         format : "json",
         origin : "*"
       }
       const resp = await axios.get('http://es.wikipedia.org/w/api.php',{params:params})
-      //console.log(resp.request)
+      console.log(resp.request)
       const pages = resp.data.query['pages']
       const pageKey = Object.keys(pages)[0]
-      const response = pageKey === '-1' ?  'Página inexistente' : pages[pageKey].extract.substring(0,500)
+      console.log(pages)
+      //const response = pageKey === '-1' ?  'Página inexistente' : pages[pageKey].extract.substring(0,500);
+      let response =  `*${words.join(" ")}*\n`;
+      if(pageKey === '-1')
+      {
+        response += 'No pude encontrar nada. Prueba otra vez...'
+      } else {
+        const extract = pages[pageKey].extract.substring(0,500)
+        const k = extract.lastIndexOf('.')
+        response += extract.substring(0,k+1)
+      }
+      response += "\n\n*justwaps.com*"
       console.log('query:',queryFormatted)
       console.log('respuesta:',response)
 
@@ -69,7 +82,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         agent.add(`${key}: ${val}`)
       }*/
     } catch(e) {
-      agent.add('Error al comunicar con google')
+      agent.add('Error al comunicar con wiki')
+      console.log(e)
       //throw e
     }
   }
