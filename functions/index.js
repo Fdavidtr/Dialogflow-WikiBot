@@ -56,7 +56,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
   }
 
   async function fallback(agent) {
-    const words = request.body.queryResult.queryText.trim().split(" ").map(e=>e.charAt(0).toUpperCase() + e.slice(1))
+    const words = request.body.queryResult.queryText.trim().split(" ");//.map(e=>e.charAt(0).toUpperCase() + e.slice(1))
     const queryFormatted = words.join(" ")//.toLowerCase()
      
     try {
