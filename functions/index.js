@@ -2,34 +2,13 @@
 
 const functions = require('firebase-functions');
 const { WebhookClient } = require('dialogflow-fulfillment');
-const { Card, Suggestion } = require('dialogflow-fulfillment');
-const { Carousel } = require('actions-on-google');
-/*const baseParams = {
-  key:'AIzaSyAajQJy4vg0EQB0S-pBbi2nAilgeawJmI4',
-  cx: '009280483232755211995:pprz59v-k10'
-}*/
 
 process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
 process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0;
-// URLs for images used in card rich responses
-const imageUrl = 'https://developers.google.com/actions/images/badges/XPM_BADGING_GoogleAssistant_VER.png';
-const imageUrl2 = 'https://lh3.googleusercontent.com/Nu3a6F80WfixUqf_ec_vgXy_c0-0r4VLJRXjVFF_X_CIilEu8B9fT35qyTEj_PEsKw';
-const linkUrl = 'https://assistant.google.com/';
 
-const axios = require('axios')
+const axios = require('axios');
 
-const jsdom = require("jsdom");
-const { JSDOM } = jsdom;
-
-function extractResultFromHtml(text) {
-
-}
-
-function delay(t, v) {
-  return new Promise(function(resolve) {
-    setTimeout(resolve.bind(null, v), t)
-  });
-}
+const SIGN = "\n\n*justwaps.com*";
 
 exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, response) => {
   const agent = new WebhookClient({ request, response });
@@ -40,47 +19,86 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     agent.add(`Welcome to my agent!`);
   }
 
+  function getWikiUrlByLangcode(langCode) {
+    if(langCode==='it'){
+      return 'http://it.wikipedia.org/w/api.php'; 
+    }
+    if(langCode==='es'){
+      return 'http://es.wikipedia.org/w/api.php';
+    }
+    return 'http://en.wikipedia.org/w/api.php';
+  }
+
+  function getLangcodeByPrefix(prefix) {
+    if(prefix === '34') {
+      return 'es';
+    }
+    if(prefix === '39') {
+      return 'it';
+    }
+    return 'en';
+  }
+
+  function clearText(text) {
+    return text.replace(/\n\n/g,"\n").replace(/=== /g,"_").replace(/ ===/g,"_").replace(/== /g,"*").replace(/ ==/g,"*")
+  }
+
+  const messages = {
+    es: {
+      not_found: 'No puedo encontrarlo.\n_Compruebe MAYÚSCULAS y minúsculas._'
+    },
+    it: {
+      not_found: 'Non lo trovo.\n_Verifica MAIUSCOLE e minuscole._'
+    },
+    en: {
+      not_found: 'I can not find it.\n_Check UPPER and lower case._'
+    }
+  }
+
   async function fallback(agent) {
     const words = request.body.queryResult.queryText.trim().split(" ").map(e=>e.charAt(0).toUpperCase() + e.slice(1))
-    const queryFormatted = words.join("_").toLowerCase()
+    const queryFormatted = words.join(" ")//.toLowerCase()
+     
     try {
       //http://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&explaintext=1&titles=Unix
       const params = {
         titles : queryFormatted,
         explaintext : 1,
+       // contentmodel: "wikitext", wiki says: "Unrecognized parameter: contentmodel."
+        utf8: 1,
         redirects: 1,
-        converttitles: 1,
+        //converttitles: 1,
         prop : "extracts",
         action : "query",
         format : "json",
         origin : "*"
-      }
-      const resp = await axios.get('http://es.wikipedia.org/w/api.php',{params:params})
+      };
+      const prefix = request.body.session.split("/").pop().slice(1,3);
+      const langCode = getLangcodeByPrefix(prefix);
+      const wiki_url = getWikiUrlByLangcode(langCode); 
+      const resp = await axios.get(wiki_url,{params:params})
       console.log(resp.request)
       const pages = resp.data.query['pages']
       const pageKey = Object.keys(pages)[0]
-      console.log(pages)
+      console.error('--------------------------------')
+      console.log('pages',pages)
       //const response = pageKey === '-1' ?  'Página inexistente' : pages[pageKey].extract.substring(0,500);
-      let response =  `*${words.join(" ")}*\n`;
+      let response =  `👉 *${words.join(" ")}*\n`;
       if(pageKey === '-1')
       {
-        response += 'No pude encontrar nada. Prueba otra vez...'
+        response += messages[langCode].not_found;
       } else {
-        const extract = pages[pageKey].extract.substring(0,500)
+        const extract = clearText(pages[pageKey].extract.substring(0,2000));
         const k = extract.lastIndexOf('.')
         response += extract.substring(0,k+1)
       }
-      response += "\n\n*justwaps.com*"
+      response += SIGN;
       console.log('query:',queryFormatted)
       console.log('respuesta:',response)
 
       //agent.add()
       agent.add(response)
-      /*for (const key in jsonResult){
-        let val = (jsonResult[key]||'')
-        console.log(val)
-        agent.add(`${key}: ${val}`)
-      }*/
+
     } catch(e) {
       agent.add('Error al comunicar con wiki')
       console.log(e)
