@@ -45,13 +45,22 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
   const messages = {
     es: {
-      not_found: 'No puedo encontrarlo.\n_Compruebe MAYÚSCULAS y minúsculas._'
+      not_found: `🧐 *No pude encontrarlo*
+ • _Asegúrate de que todas las palabras estén escritas correctamente_
+ • _Prueba con palabras diferentes_
+ • _Prueba con palabras más generales_`
     },
     it: {
-      not_found: 'Non lo trovo.\n_Verifica MAIUSCOLE e minuscole._'
+      not_found: `🧐 *Non lo trovo*
+ • _Assicurati che tutte le parole siano state digitate correttamente_
+ • _Prova parole diverse_
+ • _Prova parole più generiche_`
     },
     en: {
-      not_found: 'I can not find it.\n_Check UPPER and lower case._'
+      not_found: `🧐 *I can not find it*
+ • _Make sure all words are spelled correctly_
+ • _Try differents words_
+ • _Try more general words_`
     }
   }
 
@@ -98,13 +107,15 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
       const pages = resp.data.query['pages']
       const pageKey = Object.keys(pages)[0]
       //const response = pageKey === '-1' ?  'Página inexistente' : pages[pageKey].extract.substring(0,500);
-      let response =  `👉 *${title}*\n`;
+      let response = '';
       if(pageKey === '-1')
       {
-        response += messages[langCode].not_found;
+        response += `*${title}*\n`
+        response += "\n" + messages[langCode].not_found;
       } else {
         const extract = clearText(pages[pageKey].extract.substring(0,2000));
         const k = extract.lastIndexOf('.')
+        response += `👉 *${title}*\n`
         response += extract.substring(0,k+1)
       }
       response += SIGN;
