@@ -61,29 +61,40 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
      
     try {
       //http://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&explaintext=1&titles=Unix
-      const params = {
-        titles : queryFormatted,
+
+      const prefix = request.body.session.split("/").pop().slice(1,3);
+      const langCode = getLangcodeByPrefix(prefix);
+      const wiki_url = getWikiUrlByLangcode(langCode);
+      const paramsSearch = {
+        action: 'query',
+        generator: 'search',
+        gsrsearch: queryFormatted,
+        prop: 'info',
+        format : "json",
+        origin: "*",
+        utf8: 1,
+        explaintext: 1
+      }
+      const searchResp = await axios.get(wiki_url,{params:paramsSearch})
+      console.log( searchResp.data.query.pages);
+      const foundPages = searchResp.data.query.pages;
+      const page = foundPages[Object.keys(foundPages).find(e => foundPages[e].index == '1')];
+      const title = decodeURI(page.title);
+      const paramsPage = {
+        titles : title,
         explaintext : 1,
-       // contentmodel: "wikitext", wiki says: "Unrecognized parameter: contentmodel."
         utf8: 1,
         redirects: 1,
-        //converttitles: 1,
         prop : "extracts",
         action : "query",
         format : "json",
         origin : "*"
       };
-      const prefix = request.body.session.split("/").pop().slice(1,3);
-      const langCode = getLangcodeByPrefix(prefix);
-      const wiki_url = getWikiUrlByLangcode(langCode); 
-      const resp = await axios.get(wiki_url,{params:params})
-      console.log(resp.request)
+      const resp = await axios.get(wiki_url,{params:paramsPage})
       const pages = resp.data.query['pages']
       const pageKey = Object.keys(pages)[0]
-      console.error('--------------------------------')
-      console.log('pages',pages)
       //const response = pageKey === '-1' ?  'Página inexistente' : pages[pageKey].extract.substring(0,500);
-      let response =  `👉 *${words.join(" ")}*\n`;
+      let response =  `👉 *${title}*\n`;
       if(pageKey === '-1')
       {
         response += messages[langCode].not_found;
@@ -93,15 +104,12 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         response += extract.substring(0,k+1)
       }
       response += SIGN;
-      console.log('query:',queryFormatted)
-      console.log('respuesta:',response)
-
       //agent.add()
       agent.add(response)
 
     } catch(e) {
       agent.add('Error al comunicar con wiki')
-      console.log(e)
+      console.error(e)
       //throw e
     }
   }
