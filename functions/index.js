@@ -72,14 +72,18 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         prop: 'info',
         format : "json",
         origin: "*",
-        utf8: 1,
-        explaintext: 1
+        utf8: 1
       }
       const searchResp = await axios.get(wiki_url,{params:paramsSearch})
-      console.log( searchResp.data.query.pages);
-      const foundPages = searchResp.data.query.pages;
-      const page = foundPages[Object.keys(foundPages).find(e => foundPages[e].index == '1')];
-      const title = decodeURI(page.title);
+      let title;
+      if( searchResp.data.query ) {
+        const foundPages = searchResp.data.query.pages;
+        const page = foundPages[Object.keys(foundPages).find(e => foundPages[e].index == '1')];
+        title = decodeURI(page.title);
+      } else {
+        title = queryFormatted;
+      }
+
       const paramsPage = {
         titles : title,
         explaintext : 1,
